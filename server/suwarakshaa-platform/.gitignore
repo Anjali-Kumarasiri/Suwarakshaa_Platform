@@ -1,0 +1,20 @@
+# .NET
+bin/
+obj/
+.vs/
+*.user
+# runtime data (never commit)
+**/keys/
+**/uploads/
+# Node
+node_modules/
+dist/
+# local settings and secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
