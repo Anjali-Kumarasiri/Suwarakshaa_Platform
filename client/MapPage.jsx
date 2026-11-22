@@ -9,7 +9,7 @@ export default function MapPage() {
   const el = useRef(null), map = useRef(null), me = useRef(null);
   const [shelters, setShelters] = useState([]);
   const [pos, setPos] = useState(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState("");   // use state for take notes
 
   useEffect(() => {
     map.current = L.map(el.current).setView([7.2, 79.87], 9);
