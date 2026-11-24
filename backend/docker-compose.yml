@@ -1,0 +1,32 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment: { ACCEPT_EULA: "Y", MSSQL_SA_PASSWORD: "Your_strong_Passw0rd" }
+    ports: ["1433:1433"]
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports: ["5672:5672", "15672:15672"]
+  ai-service:
+    build: { context: ., dockerfile: Dockerfile.template, args: { PROJECT: AiService } }
+    environment:
+      ASPNETCORE_URLS: "http://+:5100"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+      AI_MODEL: "${AI_MODEL:-claude-haiku-5-5}"
+    ports: ["5100:5100"]
+  core-api:
+    build: { context: ., dockerfile: Dockerfile.template, args: { PROJECT: Api } }
+    environment:
+      ASPNETCORE_URLS: "http://+:5000"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      ConnectionStrings__Default: "Server=sqlserver,1433;Database=HumanitarianPlatform;User Id=sa;Password=Your_strong_Passw0rd;TrustServerCertificate=True"
+      AiService__BaseUrl: "http://ai-service:5100"
+    ports: ["5000:5000"]
+    volumes: ["uploads:/app/uploads", "keys:/app/keys"]
+    depends_on: [sqlserver, ai-service, rabbitmq]
+  notification-service:
+    build: { context: ., dockerfile: Dockerfile.template, args: { PROJECT: NotificationService } }
+    depends_on: [rabbitmq]
+
+volumes:
+  uploads:
+  keys:

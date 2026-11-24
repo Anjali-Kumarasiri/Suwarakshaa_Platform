@@ -1,0 +1,197 @@
+### VS Code "REST Client" extension. Set host:
+@host = http://localhost:5000
+
+### 1. Login as the seeded citizen
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "citizen@relief.test", "password": "Citizen@12345" }
+
+### 2. Submit a request (paste the token from step 1)
+POST {{host}}/api/requests
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+Content-Type: application/json
+
+{ "category": "Medicine", "description": "My father needs insulin. We are trapped by the flood.", "peopleAffected": 4, "latitude": 6.9271, "longitude": 79.8612 }
+
+### 3. Login as coordinator
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "coordinator@relief.test", "password": "Coord@12345" }
+
+### 4. See pending AI suggestions (wait ~3s after step 2: the outbox worker runs every 3 seconds)
+GET {{host}}/api/ai-recommendations?status=PendingReview
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### 5. Decide (Approve / Modify / Reject / Defer)
+POST {{host}}/api/ai-recommendations/1/decision
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "action": "Modify", "finalValueJson": "{\"category\":\"Medicine\",\"urgency\":4}", "reason": "Patient is stable, urgency 4 is enough" }
+
+### 6. Dashboard metrics
+GET {{host}}/api/dashboard/metrics
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+###################### MORE MODULES ######################
+### Public shelters (no login)
+GET {{host}}/api/shelters/public
+
+### Shelter suggestions for request 1 (login as coordinator/shelter admin)
+GET {{host}}/api/shelters/suggest?requestId=1
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Allocate shelter (capacity can never be exceeded)
+POST {{host}}/api/shelters/1/allocations
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "requestId": 1, "peopleCount": 4 }
+
+### Inventory + shortage resolution (login as logistics@relief.test / Logistics@123)
+GET {{host}}/api/resources/inventory
+Authorization: Bearer PASTE_LOGISTICS_TOKEN
+
+###
+POST {{host}}/api/resources/resolve-shortage
+Authorization: Bearer PASTE_LOGISTICS_TOKEN
+Content-Type: application/json
+
+{ "inventoryId": 3, "requests": [ { "requestId": 1, "quantity": 8 }, { "requestId": 2, "quantity": 8 } ], "partnerOrganisationId": 1 }
+
+### Duplicates awaiting review
+GET {{host}}/api/duplicates
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Volunteer registers (any logged-in user), then volunteer coordinator verifies
+POST {{host}}/api/volunteers/register
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+Content-Type: application/json
+
+{ "baseLatitude": 7.2, "baseLongitude": 79.87, "hasVehicle": true, "skills": [ { "skillId": 1, "level": 4 } ] }
+
+### Donate (sandbox, no real payment). Same paymentRef twice = one donation
+POST {{host}}/api/donations
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+Content-Type: application/json
+
+{ "campaignId": 1, "type": "Monetary", "amount": 5000, "currency": "LKR", "paymentRef": "TEST-001" }
+
+### Public transparency
+GET {{host}}/api/donations/transparency/1
+
+### Audit log (admin / coordinator)
+GET {{host}}/api/audit?entityType=AssistanceRequest
+Authorization: Bearer PASTE_ADMIN_TOKEN
+
+### Geocode an address (OpenStreetMap)
+GET {{host}}/api/geo/geocode?address=Negombo, Sri Lanka
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+
+###################### BRIEF GAPS: NEW ENDPOINTS ######################
+### Crisis + operational areas (coordinator)
+GET {{host}}/api/crises
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+###
+POST {{host}}/api/crises/1/areas
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "name": "Kalutara", "centreLat": 6.5854, "centreLng": 79.9607, "radiusKm": 20 }
+
+### Household profile (citizen). Medical notes + address are encrypted in the database
+PUT {{host}}/api/households/me
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+Content-Type: application/json
+
+{ "memberCount": 4, "hasChildren": true, "hasElderly": true, "hasDisability": false, "medicalNotes": "Father: diabetic", "address": "12 Lake Rd, Negombo" }
+
+### Upload evidence (use a real jpg/png/pdf; Swagger UI is easiest for multipart)
+# POST {{host}}/api/requests/1/attachments  (form-data, field "file")
+
+### Feedback after the request is Fulfilled
+POST {{host}}/api/requests/1/feedback
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+Content-Type: application/json
+
+{ "rating": 5, "comment": "Help arrived quickly" }
+
+### Public alerts + safety guidance (no login)
+GET {{host}}/api/alerts/public
+###
+GET {{host}}/api/alerts/guidance?type=flood
+
+### Publish an emergency announcement (coordinator) and notify all citizens
+POST {{host}}/api/alerts
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "title": "Flood warning", "body": "Move to higher ground in low-lying areas.", "severity": "Critical", "language": "en", "notifyUsers": true }
+
+### AI support assistant (no login, rate limited)
+POST {{host}}/api/assistant/ask
+Content-Type: application/json
+
+{ "message": "How do I ask for food?", "language": "en" }
+
+### Coordinator monitoring: open / overdue / escalated
+GET {{host}}/api/requests/monitor
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Assign a request to an organisation
+PATCH {{host}}/api/requests/1/assign
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "organisationId": 1, "note": "Medical team" }
+
+### Critical decisions: second approval (four-eyes)
+GET {{host}}/api/ai-recommendations/pending-approval
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+###
+POST {{host}}/api/ai-recommendations/1/second-approval
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+Content-Type: application/json
+
+{ "approve": true }
+
+### Post-incident review of AI decisions
+GET {{host}}/api/ai-recommendations/review?onlyOverrides=true
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Suspicious requests (flagged, never auto-rejected)
+GET {{host}}/api/anomalies
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Analytics
+GET {{host}}/api/analytics/forecast?category=Food&days=3
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+###
+GET {{host}}/api/analytics/summary?language=en
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+###
+GET {{host}}/api/analytics/coverage?radiusKm=10
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+###
+GET {{host}}/api/analytics/shortages
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+###
+GET {{host}}/api/analytics/kpis?days=7
+Authorization: Bearer PASTE_COORDINATOR_TOKEN
+
+### Dispatch with route + ETA (logistics)
+POST {{host}}/api/resources/allocations/1/dispatch
+Authorization: Bearer PASTE_LOGISTICS_TOKEN
+Content-Type: application/json
+
+{ }
+
+### Map: reverse geocode and route
+GET {{host}}/api/geo/reverse?lat=6.9271&lon=79.8612
+Authorization: Bearer PASTE_CITIZEN_TOKEN
+###
+GET {{host}}/api/geo/route?fromLat=6.9271&fromLon=79.8612&toLat=7.2008&toLon=79.8737
+Authorization: Bearer PASTE_CITIZEN_TOKEN
